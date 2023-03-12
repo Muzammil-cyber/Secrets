@@ -1,4 +1,5 @@
 // app.js Boilerplate with mongoose
+require('dotenv').config(); // Always on the TOP
 const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
@@ -16,8 +17,8 @@ const userSchema = new mongoose.Schema({
 	password: String
 });
 
-const secret = "Our little secret...";
-userSchema.plugin(encrypt, { secret: secret, encryptedFields: ["password"] });
+
+userSchema.plugin(encrypt, { secret: process.env.SECRET, encryptedFields: ["password"] });
 
 const User = mongoose.model("User", userSchema);
 
