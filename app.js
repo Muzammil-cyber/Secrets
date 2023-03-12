@@ -3,6 +3,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose")
+const encrypt = require("mongoose-encryption");
 
 // Replace the uri string with your MongoDB deployment's connection string.
 const uri = "mongodb://127.0.0.1:27017"
@@ -10,10 +11,14 @@ mongoose.connect(uri + "/userDB")
 
 const app = express();
 
-const userSchema = {
+const userSchema = new mongoose.Schema({
 	email: String,
 	password: String
-};
+});
+
+const secret = "Our little secret...";
+userSchema.plugin(encrypt, { secret: secret, encryptedFields: ["password"] });
+
 const User = mongoose.model("User", userSchema);
 
 app.use(express.static("public"));
