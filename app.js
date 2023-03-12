@@ -4,7 +4,8 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose")
-const md5 = require("md5");
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 // Replace the uri string with your MongoDB deployment's connection string.
 const uri = "mongodb://127.0.0.1:27017"
@@ -41,26 +42,33 @@ app.get("/login", function (req, res) {
 
 // POST METHOD
 app.post("/register", function (req, res) {
-	const newUser = new User({
-		email: req.body.email,
-		password: md5(req.body.password)
+	bcrypt.hash(req.body.password, saltRounds).then(function (hash) {
+		// Store hash in your password DB.
+		const newUser = new User({
+			email: req.body.email,
+			password: hash
+		});
+		newUser.save()
+			.then(() => { res.render("secrets"); })
+			.catch(err => { console.log(err); });
 	});
-	newUser.save()
-		.then(() => { res.render("secrets"); })
-		.catch(err => { console.log(err); });
+
 });
 
 app.post("/login", function (req, res) {
 	User.findOne({ email: req.body.email })
 		.then(user => {
 			if (user) {
-
-				if (user.password === md5(req.body.password)) {
-					res.render("secrets");
-				} else {
-					console.log("Incorrect password");
-					res.render("login");
-				}
+				// Load hash from your password DB.
+				bcrypt.compare(req.body.password, user.password).then(function (result) {
+					// result == true
+					if (result) {
+						res.render("secrets");
+					} else {
+						console.log("User not found");
+						res.render("login");
+					}
+				});
 			} else {
 				console.log("User not found");
 				res.render("login");
