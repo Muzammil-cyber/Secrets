@@ -4,7 +4,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose")
-const encrypt = require("mongoose-encryption");
+const md5 = require("md5");
 
 // Replace the uri string with your MongoDB deployment's connection string.
 const uri = "mongodb://127.0.0.1:27017"
@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema({
 });
 
 
-userSchema.plugin(encrypt, { secret: process.env.SECRET, encryptedFields: ["password"] });
+
 
 const User = mongoose.model("User", userSchema);
 
@@ -43,7 +43,7 @@ app.get("/login", function (req, res) {
 app.post("/register", function (req, res) {
 	const newUser = new User({
 		email: req.body.email,
-		password: req.body.password
+		password: md5(req.body.password)
 	});
 	newUser.save()
 		.then(() => { res.render("secrets"); })
@@ -55,7 +55,7 @@ app.post("/login", function (req, res) {
 		.then(user => {
 			if (user) {
 
-				if (user.password === req.body.password) {
+				if (user.password === md5(req.body.password)) {
 					res.render("secrets");
 				} else {
 					console.log("Incorrect password");
