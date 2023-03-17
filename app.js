@@ -41,10 +41,20 @@ userSchema.plugin(passportLocalMongoose);
 
 const User = new mongoose.model("User", userSchema);
 
-passport.use(User.createStrategy());
+passport.use({
+	usernameField: 'email',
+}, User.authenticate());
 
-passport.serializeUser(User.serializeUser());
-passport.deserializeUser(User.deserializeUser());
+passport.serializeUser(function (user, done) {
+	done(null, user.id);
+});
+
+passport.deserializeUser(function (id, done) {
+	User.findById(id).then(function (user) {
+		done(null, user)
+	});
+});
+
 
 
 
@@ -61,76 +71,35 @@ app.get("/login", function (req, res) {
 	res.render("login");
 });
 
-app.get("/secrets", passport.authenticate('local', { failureRedirect: '/login', failureMessage: true }), (req, res) => {
+app.get("/secrets", (req, res) => {
 	if (req.isAuthenticated) { res.render("secrets"); }
 	else { res.redirect("/login"); }
 })
 
 app.get("/logout", function (req, res) {
-	req.logout(function () { res.redirect("/") });
-	;
+	req.logout(function (err) {
+		if (err) { console.log(err) }
+		res.redirect('/');
+	});
+
 });
 
 // POST METHOD
 app.post("/register", function (req, res) {
 
-	User.register({ username: req.body.email }, req.body.password, function (err, user) {
+	User.register({ username: req.body.username }, req.body.password, function (err, user) {
 		if (err) {
 			console.log(err);
 			res.redirect("/register");
 		} else {
-			req.login(user, (er) => {
-				if (er) {
-					res.json({ success: false, message: er });
-				}
-				else {
-					res.redirect("/secrets");
-				}
+			passport.authenticate("local")(req, res, function () {
+				res.redirect("/secrets");
 			});
 		}
-	})
-	// .then(() => { res.redirect("/secrets") })
-	// .catch(err => { console.log(err) })
+	});
 
-
-	// function (err) {
-	// 	if (err) {
-	// 		console.log(err);
-	// 		res.redirect("/register");
-	// 	} else {
-	// 		res.redirect("/secrets");
-	// 	}
-	// });
-
-
-	// passport.authenticate("local")(req, res, function () {
-	// 	res.redirect("/secrets");
-	// });
 
 });
-
-
-// User.register({ username: req.body.email }, req.body.password, function (err, user) {
-// 	if (err) {
-// 		console.log("Error in registering.", err);
-// 		res.redirect("/register");
-// 	} else {
-// 		console.log("your here:" + user);
-// 		User.authenticate(req.body.email, req.body.password, function (err, result) {
-// 			if (err) {
-// 				console.log("Error in authenticating.", err);
-// 				res.redirect("/login");
-// 			} else {
-// 				console.log("your here");
-// 				console.log(result, 101);
-// 				res.redirect("/secrets")
-// 			}
-// 			;
-// 		});
-// 	}
-// });
-
-
 
 app.post("/login", function (req, res) {
 	const user = new User({
@@ -138,20 +107,15 @@ app.post("/login", function (req, res) {
 		password: req.body.password
 	});
 
-	passport.authenticate("local", function (err, user, info) {
+	req.login(user, function (err) {
 		if (err) {
-			res.json({ success: false, message: err });
+			console.log(err);
+		} else {
+			passport.authenticate("local")(req, res, function () {
+				res.redirect("/secrets");
+			});
 		}
-		else {
-			if (!user) {
-				res.json({ success: false, message: "username or password incorrect" });
-			}
-			else {
-				const token = jwt.sign({ userId: user._id, username: user.username }, secretkey, { expiresIn: "24h" });
-				res.json({ success: true, message: "Authentication successful", token: token });
-			}
-		}
-	})(req, res)
+	});
 });
 
 
