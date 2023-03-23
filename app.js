@@ -38,7 +38,7 @@ const userSchema = new mongoose.Schema({
 	password: String,
 	googleId: String,
 	secret: String
-  });
+});
 
 userSchema.plugin(passportLocalMongoose);
 userSchema.plugin(findOrCreate);
@@ -63,27 +63,27 @@ passport.use(new GoogleStrategy({
 	clientID: process.env.GOOGLE_CLIENT_ID,
 	clientSecret: process.env.GOOGLE_CLIENT_SECRET,
 	callbackURL: 'http://localhost:3000/auth/google/secrets'
-  }, async function(accessToken, refreshToken, profile, done) {
+}, async function (accessToken, refreshToken, profile, done) {
 	try {
-	//   console.log(profile);
-	  // Find or create user in your database
-	  let user = await User.findOne({
-		googleId: profile.id
-	  });
-	  if (!user) {
-		// Create new user in database
-		const username = Array.isArray(profile.emails) && profile.emails.length > 0 ? profile.emails[0].value.split('@')[0] : '';
-		const newUser = new User({
-		  username: profile.displayName,
-		  googleId: profile.id
+		//   console.log(profile);
+		// Find or create user in your database
+		let user = await User.findOne({
+			googleId: profile.id
 		});
-		user = await newUser.save();
-	  }
-	  return done(null, user);
+		if (!user) {
+			// Create new user in database
+			const username = Array.isArray(profile.emails) && profile.emails.length > 0 ? profile.emails[0].value.split('@')[0] : '';
+			const newUser = new User({
+				username: profile.displayName,
+				googleId: profile.id
+			});
+			user = await newUser.save();
+		}
+		return done(null, user);
 	} catch (err) {
-	  return done(err);
+		return done(err);
 	}
-  }));
+}));
 
 
 // GET METHOD
@@ -110,10 +110,27 @@ app.get("/login", function (req, res) {
 	res.render("login");
 });
 
-app.get("/secrets", (req, res) => {
-	if (req.isAuthenticated) { res.render("secrets"); }
-	else { res.redirect("/login"); }
-})
+app.get("/secrets", function (req, res) {
+	User.find({
+		secret: {
+			$ne: null
+		}
+	}).then((foundUsers) => {
+		res.render("secrets", {
+			usersWithSecrets: foundUsers
+		})
+	}).catch((err) => {
+		console.log(err)
+	});
+});
+
+app.route("/submit").get(function (req, res) {
+	if (req.isAuthenticated()) {
+		res.render("submit");
+	} else {
+		res.redirect("/login");
+	}
+});
 
 app.get("/logout", function (req, res) {
 	req.logout(function (err) {
@@ -156,6 +173,27 @@ app.post("/login", function (req, res) {
 		}
 	});
 });
+
+app.post("/submit", function (req, res) {
+	const secret = req.body.secret;
+	const user = req.body.user;
+	const password = req.body.password;
+
+
+	User.findById(req.user.id).then((foundUser) => {
+		if (foundUser) {
+			foundUser.secret = secret;
+			foundUser.save().then(() => {
+				res.redirect("/secrets")
+			}).catch((err) => {
+				console.log(err)
+			});
+		}
+	}).catch((err) => {
+		console.log(err)
+	});
+
+})
 
 
 // LISTENING ON PORT (3000)
